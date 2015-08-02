@@ -2,40 +2,73 @@ require 'spec_helper'
 
 describe EventsController do
   before do
-    Event.where(:user_id => users(:bob).id).count.should > 0
-    Event.where(:user_id => users(:jane).id).count.should > 0
+    expect(Event.where(:user_id => users(:bob).id).count).to be > 0
+    expect(Event.where(:user_id => users(:jane).id).count).to be > 0
   end
 
   describe "GET index" do
-    it "only returns Agents for the current user" do
+    it "only returns Events created by Agents of the current user" do
       sign_in users(:bob)
       get :index
-      assigns(:events).all? {|i| i.user.should == users(:bob) }.should be_true
+      expect(assigns(:events).all? {|i| expect(i.user).to eq(users(:bob)) }).to be_truthy
+    end
+
+    it "can filter by Agent" do
+      sign_in users(:bob)
+      get :index, :agent_id => agents(:bob_website_agent)
+      expect(assigns(:events).length).to eq(agents(:bob_website_agent).events.length)
+      expect(assigns(:events).all? {|i| expect(i.agent).to eq(agents(:bob_website_agent)) }).to be_truthy
+
+      expect {
+        get :index, :agent_id => agents(:jane_website_agent)
+      }.to raise_error(ActiveRecord::RecordNotFound)
     end
   end
 
   describe "GET show" do
-    it "only shows Agents for the current user" do
+    it "only shows Events for the current user" do
       sign_in users(:bob)
       get :show, :id => events(:bob_website_agent_event).to_param
-      assigns(:event).should eq(events(:bob_website_agent_event))
+      expect(assigns(:event)).to eq(events(:bob_website_agent_event))
 
-      lambda {
+      expect {
         get :show, :id => events(:jane_website_agent_event).to_param
-      }.should raise_error(ActiveRecord::RecordNotFound)
+      }.to raise_error(ActiveRecord::RecordNotFound)
+    end
+  end
+
+  describe "POST reemit" do
+    before do
+      request.env["HTTP_REFERER"] = "/events"
+      sign_in users(:bob)
+    end
+
+    it "clones and re-emits events" do
+      expect {
+        post :reemit, :id => events(:bob_website_agent_event).to_param
+      }.to change { Event.count }.by(1)
+      expect(Event.last.payload).to eq(events(:bob_website_agent_event).payload)
+      expect(Event.last.agent).to eq(events(:bob_website_agent_event).agent)
+      expect(Event.last.created_at.to_i).to be_within(2).of(Time.now.to_i)
+    end
+
+    it "can only re-emit Events for the current user" do
+      expect {
+        post :reemit, :id => events(:jane_website_agent_event).to_param
+      }.to raise_error(ActiveRecord::RecordNotFound)
     end
   end
 
   describe "DELETE destroy" do
     it "only deletes events for the current user" do
       sign_in users(:bob)
-      lambda {
+      expect {
         delete :destroy, :id => events(:bob_website_agent_event).to_param
-      }.should change { Event.count }.by(-1)
+      }.to change { Event.count }.by(-1)
 
-      lambda {
+      expect {
         delete :destroy, :id => events(:jane_website_agent_event).to_param
-      }.should raise_error(ActiveRecord::RecordNotFound)
+      }.to raise_error(ActiveRecord::RecordNotFound)
     end
   end
 end

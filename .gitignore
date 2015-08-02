@@ -7,6 +7,7 @@ capybara-*.html
 /vendor/bundle
 /log/*
 /tmp/*
+!/tmp/.gitkeep
 /db/*.sqlite3
 /public/system/*
 /coverage/
@@ -16,3 +17,11 @@ rerun.txt
 pickle-email-*.html
 .idea/
 .DS_Store
+.env
+deployment/tmp
+deployment/cookbooks
+.vagrant
+.*un~
+.ruby-gemset
+.ruby-version
+manifest.yml
